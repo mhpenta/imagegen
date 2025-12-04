@@ -1,6 +1,6 @@
 # imagegen
 
-A Go library for AI image generation with multi-provider support.
+A Go library for AI image generation with multi-provider support. 
 
 ## Features
 
@@ -44,7 +44,7 @@ func main() {
 
 ## Supported Providers
 
-- **Gemini** (Google) - `gemini-3-pro-image`, `gemini-2.5-flash-image`
+- **Gemini** (Google) - `gemini-3-pro-image-preview`, `gemini-2.5-flash-image`
 
 ## License
 
