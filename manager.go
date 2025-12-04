@@ -109,11 +109,10 @@ func (m *Manager) RegisterModel(model Model, mapping ModelMapping, info *ModelIn
 
 	// Create default in-memory rate limiter from model's rate limits
 	if info.RateLimits.TokensPerMinute > 0 || info.RateLimits.RequestsPerMinute > 0 {
-		m.rateLimiters[model] = ratelimiter.NewFromLimits(&ratelimiter.RateLimits{
-			TokensPerMinute:   info.RateLimits.TokensPerMinute,
-			RequestsPerMinute: info.RateLimits.RequestsPerMinute,
-			TokensPerDay:      info.RateLimits.TokensPerDay,
-		})
+		m.rateLimiters[model] = ratelimiter.New(
+			info.RateLimits.TokensPerMinute,
+			info.RateLimits.RequestsPerMinute,
+		)
 	}
 
 	return m

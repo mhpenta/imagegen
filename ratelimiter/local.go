@@ -16,25 +16,6 @@ type RateLimiter struct {
 // Ensure RateLimiter implements Limiter.
 var _ Limiter = (*RateLimiter)(nil)
 
-// RateLimitConfig stores the rate limit configuration.
-// ModelName, TokensPerMessage and TokensPerDay are not used in the current implementation.
-type RateLimitConfig struct {
-	ModelName         string
-	TokensPerMinute   int
-	RequestsPerMinute int
-	TokensPerMessage  int
-	TokensPerDay      int
-}
-
-// NewLimiter initializes a new rate limiter with the given config.
-func NewLimiter(config *RateLimitConfig) *RateLimiter {
-	// Tokens and requests are replenished per minute, hence refillInterval is 1 minute.
-	refillInterval := time.Minute
-	return &RateLimiter{
-		TokensBucket:   NewTokenBucket(config.TokensPerMinute, config.TokensPerMinute, refillInterval),
-		RequestsBucket: NewTokenBucket(config.RequestsPerMinute, config.RequestsPerMinute, refillInterval),
-	}
-}
 
 // HasCapacity checks if tokens are available WITHOUT consuming them.
 func (rl *RateLimiter) HasCapacity(numTokens int) bool {
@@ -46,16 +27,6 @@ func (rl *RateLimiter) TryConsume(numTokens int) bool {
 	return rl.TokensBucket.TryConsume(numTokens) && rl.RequestsBucket.TryConsume(1)
 }
 
-// CanProceed checks if the request can proceed based on the current state of the rate limiter.
-// Deprecated: Use HasCapacity for read-only checks, TryConsume for atomic check-and-consume.
-func (rl *RateLimiter) CanProceed(numTokens int) bool {
-	return rl.TryConsume(numTokens)
-}
-
-// Consume attempts to consume the specified number of tokens.
-func (rl *RateLimiter) Consume(numTokens int) bool {
-	return rl.TryConsume(numTokens)
-}
 
 // TokenBucket implements a token bucket rate limit algorithm.
 type TokenBucket struct {
@@ -150,7 +121,7 @@ func (rl *RateLimiter) WaitAndConsume(ctx context.Context, tokens int, maxWait t
 	}
 
 	// Try to consume - should succeed after waiting
-	if !rl.CanProceed(tokens) {
+	if !rl.TryConsume(tokens) {
 		// Shouldn't happen normally, but handle edge case
 		return fmt.Errorf("failed to acquire tokens after waiting")
 	}
@@ -232,18 +203,11 @@ func (tb *TokenBucket) Wait(tokens int) time.Duration {
 	return waitDuration + (waitDuration / 10)
 }
 
-// RateLimits mirrors the imagegen.RateLimits type to avoid circular imports.
-type RateLimits struct {
-	TokensPerMinute   int
-	RequestsPerMinute int
-	TokensPerDay      int
-}
-
-// NewFromLimits creates a RateLimiter from a RateLimits configuration.
-func NewFromLimits(limits *RateLimits) *RateLimiter {
+// New creates a RateLimiter with the specified tokens and requests per minute limits.
+func New(tokensPerMinute, requestsPerMinute int) *RateLimiter {
 	refillInterval := time.Minute
 	return &RateLimiter{
-		TokensBucket:   NewTokenBucket(limits.TokensPerMinute, limits.TokensPerMinute, refillInterval),
-		RequestsBucket: NewTokenBucket(limits.RequestsPerMinute, limits.RequestsPerMinute, refillInterval),
+		TokensBucket:   NewTokenBucket(tokensPerMinute, tokensPerMinute, refillInterval),
+		RequestsBucket: NewTokenBucket(requestsPerMinute, requestsPerMinute, refillInterval),
 	}
 }

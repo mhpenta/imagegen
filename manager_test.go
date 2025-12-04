@@ -51,10 +51,7 @@ func TestManager_Generate_RateLimit(t *testing.T) {
 	}
 
 	// Now increase limit to allow it
-	manager.SetRateLimiter("test-model", ratelimiter.NewFromLimits(&ratelimiter.RateLimits{
-		TokensPerMinute:   200,
-		RequestsPerMinute: 10,
-	}))
+	manager.SetRateLimiter("test-model", ratelimiter.New(200, 10))
 
 	result, err := manager.Generate(ctx, prompt, &GenerateConfig{
 		Model: "test-model",
@@ -92,10 +89,7 @@ func TestManager_Generate_TokenEstimation(t *testing.T) {
 	// Overhead is 100.
 	// So we have 100 tokens left for text.
 	// 100 tokens * 4 chars = 400 chars.
-	limiter := ratelimiter.NewFromLimits(&ratelimiter.RateLimits{
-		TokensPerMinute:   200,
-		RequestsPerMinute: 100,
-	})
+	limiter := ratelimiter.New(200, 100)
 	manager.SetRateLimiter("test-model", limiter)
 
 	ctx := context.Background()
@@ -109,10 +103,7 @@ func TestManager_Generate_TokenEstimation(t *testing.T) {
 	// Remaining tokens: 200 - 102 = 98.
 	// Wait, we need to reset or account for consumption.
 	// Let's reset the limiter for the next step to be clean.
-	limiter = ratelimiter.NewFromLimits(&ratelimiter.RateLimits{
-		TokensPerMinute:   200,
-		RequestsPerMinute: 100,
-	})
+	limiter = ratelimiter.New(200, 100)
 	manager.SetRateLimiter("test-model", limiter)
 
 	// Large prompt: 500 chars -> ~125 tokens + 100 = 225. Should fail (225 > 200).

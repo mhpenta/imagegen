@@ -46,51 +46,35 @@ func TestTokenBucket(t *testing.T) {
 	}
 }
 
-func TestRateLimiter_CanProceed(t *testing.T) {
-	config := &RateLimitConfig{
-		TokensPerMinute:   100,
-		RequestsPerMinute: 10,
-	}
-	rl := NewLimiter(config)
+func TestRateLimiter_TryConsume(t *testing.T) {
+	rl := New(100, 10)
 
 	// Should be able to proceed
-	if !rl.CanProceed(10) {
+	if !rl.TryConsume(10) {
 		t.Error("should be able to proceed with valid request")
 	}
 
 	// Test running out of tokens
-	smallTokenConfig := &RateLimitConfig{
-		TokensPerMinute:   10,
-		RequestsPerMinute: 100,
-	}
-	smallTokenRL := NewLimiter(smallTokenConfig)
-	if !smallTokenRL.CanProceed(10) {
+	smallTokenRL := New(10, 100)
+	if !smallTokenRL.TryConsume(10) {
 		t.Error("should be able to consume exactly available tokens")
 	}
-	if smallTokenRL.CanProceed(1) {
+	if smallTokenRL.TryConsume(1) {
 		t.Error("should not proceed when tokens exhausted")
 	}
 
 	// Test running out of requests
-	smallReqConfig := &RateLimitConfig{
-		TokensPerMinute:   100,
-		RequestsPerMinute: 1,
-	}
-	smallReqRL := NewLimiter(smallReqConfig)
-	if !smallReqRL.CanProceed(1) {
+	smallReqRL := New(100, 1)
+	if !smallReqRL.TryConsume(1) {
 		t.Error("should be able to proceed with 1st request")
 	}
-	if smallReqRL.CanProceed(1) {
+	if smallReqRL.TryConsume(1) {
 		t.Error("should not proceed when requests exhausted")
 	}
 }
 
 func TestRateLimiter_Wait(t *testing.T) {
-	config := &RateLimitConfig{
-		TokensPerMinute:   60, // 1 token per second
-		RequestsPerMinute: 60,
-	}
-	rl := NewLimiter(config)
+	rl := New(60, 60) // 1 token per second
 
 	// Consume all tokens
 	rl.TokensBucket.Consume(60)
