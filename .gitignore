@@ -1,0 +1,66 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+tui
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE and editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Generated images (example outputs)
+examples/output/
+examples/tui/output/
+*.png
+*.jpg
+*.jpeg
+*.webp
+!examples/*/input*.jpg
+examples/tui/prompts.db
+
+# Example binaries
+examples/tui/tui
+examples/tui/
+
+
+
+# Build output
+bin/
+dist/
+output/
+
+# Debug files
+debug
+*.log
+
+
