@@ -16,12 +16,6 @@ type RateLimiter struct {
 // Ensure RateLimiter implements Limiter.
 var _ Limiter = (*RateLimiter)(nil)
 
-
-// HasCapacity checks if tokens are available WITHOUT consuming them.
-func (rl *RateLimiter) HasCapacity(numTokens int) bool {
-	return rl.TokensBucket.HasCapacity(numTokens) && rl.RequestsBucket.HasCapacity(1)
-}
-
 // TryConsume atomically checks capacity and consumes tokens if available.
 func (rl *RateLimiter) TryConsume(numTokens int) bool {
 	return rl.TokensBucket.TryConsume(numTokens) && rl.RequestsBucket.TryConsume(1)
@@ -47,25 +41,9 @@ func NewTokenBucket(capacity int, initialTokens int, refillInterval time.Duratio
 	}
 }
 
-// HasCapacity checks if tokens are available WITHOUT consuming them.
-func (tb *TokenBucket) HasCapacity(tokens int) bool {
-	tb.mu.Lock()
-	defer tb.mu.Unlock()
-	now := time.Now()
-	remaining := tb.remaining
-	if now.Sub(tb.lastRefill) >= tb.refillInterval {
-		remaining = tb.capacity
-	}
-	return tokens <= remaining
-}
-
-// TryConsume atomically checks and consumes tokens. Same as Consume.
+// TryConsume tries to consume a specified number of tokens from the bucket.
+// Returns true if tokens were consumed, false if insufficient capacity.
 func (tb *TokenBucket) TryConsume(tokens int) bool {
-	return tb.Consume(tokens)
-}
-
-// Consume tries to consume a specified number of tokens from the bucket.
-func (tb *TokenBucket) Consume(tokens int) bool {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 	now := time.Now()

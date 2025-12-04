@@ -11,7 +11,7 @@ func TestTokenBucket(t *testing.T) {
 	bucket := NewTokenBucket(capacity, capacity, refillInterval)
 
 	// Test initial capacity
-	if !bucket.Consume(5) {
+	if !bucket.TryConsume(5) {
 		t.Error("failed to consume tokens from full bucket")
 	}
 	if bucket.remaining != 5 {
@@ -19,7 +19,7 @@ func TestTokenBucket(t *testing.T) {
 	}
 
 	// Test consuming more than remaining
-	if bucket.Consume(6) {
+	if bucket.TryConsume(6) {
 		t.Error("should not be able to consume more than remaining")
 	}
 
@@ -33,7 +33,7 @@ func TestTokenBucket(t *testing.T) {
 	fastBucket := NewTokenBucket(capacity, 0, shortInterval)
 
 	// Should fail initially
-	if fastBucket.Consume(1) {
+	if fastBucket.TryConsume(1) {
 		t.Error("should fail to consume from empty bucket")
 	}
 
@@ -41,7 +41,7 @@ func TestTokenBucket(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	// Should succeed now
-	if !fastBucket.Consume(1) {
+	if !fastBucket.TryConsume(1) {
 		t.Error("should succeed after refill")
 	}
 }
@@ -77,7 +77,7 @@ func TestRateLimiter_Wait(t *testing.T) {
 	rl := New(60, 60) // 1 token per second
 
 	// Consume all tokens
-	rl.TokensBucket.Consume(60)
+	rl.TokensBucket.TryConsume(60)
 
 	// We need 1 token. Refill rate is 1/sec.
 	// Wait should return approx 1s.
