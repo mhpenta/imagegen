@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -85,6 +86,10 @@ func (g *GeminiGenerator) SetSafetySettings(settings []imagegen.SafetySetting) *
 
 // Generate creates images from a text prompt.
 func (g *GeminiGenerator) Generate(ctx context.Context, prompt string, config *imagegen.GenerateConfig) (*imagegen.GenerateResult, error) {
+	if err := imagegen.ValidatePrompt(prompt); err != nil {
+		return nil, err
+	}
+
 	if config == nil {
 		config = imagegen.DefaultConfig()
 	}
@@ -122,6 +127,13 @@ func (g *GeminiGenerator) Generate(ctx context.Context, prompt string, config *i
 
 // Edit modifies an existing image based on a text instruction.
 func (g *GeminiGenerator) Edit(ctx context.Context, image imagegen.InputImage, instruction string, config *imagegen.GenerateConfig) (*imagegen.GenerateResult, error) {
+	if err := imagegen.ValidatePrompt(instruction); err != nil {
+		return nil, err
+	}
+	if err := imagegen.ValidateInputImage(image); err != nil {
+		return nil, err
+	}
+
 	if config == nil {
 		config = imagegen.DefaultConfig()
 	}
@@ -158,17 +170,15 @@ func (g *GeminiGenerator) Edit(ctx context.Context, image imagegen.InputImage, i
 
 // EditMultiple performs editing with multiple reference images.
 func (g *GeminiGenerator) EditMultiple(ctx context.Context, images []imagegen.InputImage, instruction string, config *imagegen.GenerateConfig) (*imagegen.GenerateResult, error) {
+	if err := imagegen.ValidatePrompt(instruction); err != nil {
+		return nil, err
+	}
+	if err := imagegen.ValidateInputImages(images); err != nil {
+		return nil, err
+	}
+
 	if config == nil {
 		config = imagegen.DefaultConfig()
-	}
-
-	if len(images) == 0 {
-		return nil, errors.New("at least one image is required")
-	}
-
-	// Nano Banana Pro supports up to 14 reference images
-	if len(images) > 14 {
-		return nil, fmt.Errorf("maximum 14 images supported, got %d", len(images))
 	}
 
 	modelName := g.resolveModel(config)
@@ -265,6 +275,13 @@ func (g *GeminiGenerator) buildGenerateContentConfig(config *imagegen.GenerateCo
 		genConfig.Temperature = genai.Ptr(float32(*config.Temperature))
 	}
 
+	// Thinking mode configuration
+	if config.EnableThinking {
+		genConfig.ThinkingConfig = &genai.ThinkingConfig{
+			IncludeThoughts: true,
+		}
+	}
+
 	// Safety settings: per-request overrides provider defaults
 	if len(config.SafetySettings) > 0 {
 		genConfig.SafetySettings = convertSafetySettings(config.SafetySettings)
@@ -297,6 +314,8 @@ func (g *GeminiGenerator) parseResult(result *genai.GenerateContentResponse) (*i
 		Images: make([]imagegen.GeneratedImage, 0),
 	}
 
+	var thinkingParts []string
+
 	imageIndex := 0
 	for _, candidate := range result.Candidates {
 		if candidate.Content == nil {
@@ -304,7 +323,13 @@ func (g *GeminiGenerator) parseResult(result *genai.GenerateContentResponse) (*i
 		}
 
 		for _, part := range candidate.Content.Parts {
-			// Handle text parts
+			// Handle thinking/thought parts
+			if part.Thought && part.Text != "" {
+				thinkingParts = append(thinkingParts, part.Text)
+				continue
+			}
+
+			// Handle regular text parts
 			if part.Text != "" {
 				genResult.Text += part.Text
 			}
@@ -319,6 +344,11 @@ func (g *GeminiGenerator) parseResult(result *genai.GenerateContentResponse) (*i
 				imageIndex++
 			}
 		}
+	}
+
+	// Combine thinking parts
+	if len(thinkingParts) > 0 {
+		genResult.ThinkingContent = strings.Join(thinkingParts, "\n")
 	}
 
 	// Parse usage metadata if available

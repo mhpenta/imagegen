@@ -44,9 +44,6 @@ type GenerateConfig struct {
 	// AspectRatio of the output image
 	AspectRatio AspectRatio
 
-	// NumberOfImages to generate (1-4 typically)
-	NumberOfImages int
-
 	// EnableGrounding enables Google Search grounding for factual accuracy
 	EnableGrounding bool
 
@@ -89,7 +86,6 @@ func DefaultConfig() *GenerateConfig {
 		Model:          ModelDefault,
 		Size:           ImageSize2K,
 		AspectRatio:    AspectRatioAuto,
-		NumberOfImages: 1,
 		EnableThinking: false,
 		Temperature:    &temp,
 	}

@@ -32,6 +32,21 @@ type Pricing struct {
 	ImageGenerationCost    float64 // Per image (if applicable)
 }
 
+// EstimateCost calculates the estimated cost in USD for a request.
+func (p Pricing) EstimateCost(inputTokens, outputTokens int) float64 {
+	inputCost := float64(inputTokens) * p.InputTokensPerMillion / 1_000_000
+	outputCost := float64(outputTokens) * p.OutputTokensPerMillion / 1_000_000
+	return inputCost + outputCost
+}
+
+// EstimateCostFromUsage calculates the estimated cost from UsageMetadata.
+func (p Pricing) EstimateCostFromUsage(usage *UsageMetadata) float64 {
+	if usage == nil {
+		return 0
+	}
+	return p.EstimateCost(usage.PromptTokens, usage.CandidatesTokens)
+}
+
 // ImageConstraints defines supported image configurations for a model.
 type ImageConstraints struct {
 	SupportedAspectRatios []AspectRatio

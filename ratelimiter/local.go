@@ -9,6 +9,7 @@ import (
 
 // RateLimiter holds the state of the rate limits.
 type RateLimiter struct {
+	mu             sync.Mutex
 	TokensBucket   *TokenBucket
 	RequestsBucket *TokenBucket
 }
@@ -17,8 +18,21 @@ type RateLimiter struct {
 var _ Limiter = (*RateLimiter)(nil)
 
 // TryConsume atomically checks capacity and consumes tokens if available.
+// Both token and request buckets are checked together before consuming from either,
+// ensuring that a failed request check doesn't leave tokens consumed.
 func (rl *RateLimiter) TryConsume(numTokens int) bool {
-	return rl.TokensBucket.TryConsume(numTokens) && rl.RequestsBucket.TryConsume(1)
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	// Check both buckets have capacity before consuming from either
+	if !rl.TokensBucket.HasCapacity(numTokens) || !rl.RequestsBucket.HasCapacity(1) {
+		return false
+	}
+
+	// Both have capacity, now consume from both
+	rl.TokensBucket.consume(numTokens)
+	rl.RequestsBucket.consume(1)
+	return true
 }
 
 
@@ -46,16 +60,40 @@ func NewTokenBucket(capacity int, initialTokens int, refillInterval time.Duratio
 func (tb *TokenBucket) TryConsume(tokens int) bool {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
-	now := time.Now()
-	if now.Sub(tb.lastRefill) >= tb.refillInterval {
-		tb.remaining = tb.capacity
-		tb.lastRefill = now
-	}
+	tb.refillLocked()
 	if tokens <= tb.remaining {
 		tb.remaining -= tokens
 		return true
 	}
 	return false
+}
+
+// HasCapacity checks if the bucket has capacity for the specified tokens.
+// This refreshes the bucket and checks without consuming.
+func (tb *TokenBucket) HasCapacity(tokens int) bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+	tb.refillLocked()
+	return tokens <= tb.remaining
+}
+
+// consume deducts tokens from the bucket.
+// Callers should ensure they've checked capacity first.
+func (tb *TokenBucket) consume(tokens int) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+	tb.refillLocked()
+	tb.remaining -= tokens
+}
+
+// refillLocked refills the bucket based on elapsed time.
+// Must be called while holding tb.mu.
+func (tb *TokenBucket) refillLocked() {
+	now := time.Now()
+	if now.Sub(tb.lastRefill) >= tb.refillInterval {
+		tb.remaining = tb.capacity
+		tb.lastRefill = now
+	}
 }
 
 // Wait returns the time the goroutine needs to wait to consume the specified number of tokens.
